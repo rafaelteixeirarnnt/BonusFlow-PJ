@@ -3,7 +3,9 @@ import {
   ClipboardList,
   FileBarChart,
   LayoutDashboard,
+  LogOut,
   LucideIcon,
+  LockKeyhole,
   Plus,
   Scale,
   UserCog,
@@ -14,11 +16,15 @@ import {
   AbsenceRequest,
   AbsenceType,
   AppUser,
+  AuthUser,
   ContractRule,
   Dashboard,
   Professional,
   absenceTypeLabels,
   api,
+  getAuthToken,
+  roleLabels,
+  setAuthToken,
   statusLabels
 } from "./lib/api";
 
@@ -37,6 +43,7 @@ const navItems: Array<{ id: View; label: string; icon: LucideIcon }> = [
 ];
 
 export function App() {
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [professionals, setProfessionals] = useState<Professional[]>([]);
@@ -77,8 +84,36 @@ export function App() {
   }
 
   useEffect(() => {
-    refresh().catch((err) => setError(err instanceof Error ? err.message : "API indisponivel."));
+    if (getAuthToken()) {
+      refresh().catch((err) => {
+        setAuthToken(null);
+        setError(err instanceof Error ? err.message : "Sessao expirada.");
+      });
+    }
   }, []);
+
+  async function login(email: string, password: string) {
+    setError("");
+    const response = await api.login({ email, password });
+    setAuthToken(response.token);
+    setCurrentUser(response.user);
+    await refresh();
+  }
+
+  function logout() {
+    setAuthToken(null);
+    setCurrentUser(null);
+    setDashboard(null);
+    setProfessionals([]);
+    setUsers([]);
+    setRules([]);
+    setRequests([]);
+    setReportRows([]);
+  }
+
+  if (!getAuthToken()) {
+    return <LoginPage error={error} onLogin={(email, password) => login(email, password).catch((err) => setError(err instanceof Error ? err.message : "Login invalido."))} />;
+  }
 
   return (
     <main className="app-shell">
@@ -101,13 +136,17 @@ export function App() {
             );
           })}
         </nav>
+        <button className="logout-button" onClick={logout}>
+          <LogOut size={18} />
+          Sair
+        </button>
       </aside>
 
       <section className="workspace">
         <header className="topbar">
           <div>
             <h1>{navItems.find((item) => item.id === view)?.label}</h1>
-            <p>Controle de bonificacoes, afastamentos e saldo contratual para profissionais PJ.</p>
+            <p>{currentUser ? `${currentUser.name} · ${roleLabels[currentUser.role]}` : "Controle de bonificacoes, afastamentos e saldo contratual para profissionais PJ."}</p>
           </div>
           <button className="icon-button" onClick={() => refresh()} title="Atualizar dados">
             <Plus size={18} />
@@ -149,7 +188,39 @@ export function App() {
             }}
           />
         )}
-        {view === "users" && <UsersPage users={users} onCreate={(body) => run(() => api.createUser(body), "Usuario cadastrado.")} />}
+        {view === "users" && (
+          <UsersPage
+            professionals={professionals}
+            users={users}
+            onCreate={(body) => run(() => api.createUser(body), "Usuario cadastrado e credenciais enviadas.")}
+            onActivate={(id) => run(() => api.activateUser(id), "Usuario ativado.")}
+            onDeactivate={(id) => run(() => api.deactivateUser(id), "Usuario inativado.")}
+          />
+        )}
+      </section>
+    </main>
+  );
+}
+
+function LoginPage({ error, onLogin }: { error: string; onLogin: (email: string, password: string) => void }) {
+  const [email, setEmail] = useState("admin@bonusflow.com");
+  const [password, setPassword] = useState("Admin@123");
+  return (
+    <main className="login-screen">
+      <section className="login-panel">
+        <div className="brand login-brand">
+          <div className="brand-mark">BF</div>
+          <div>
+            <strong>BonusFlow PJ</strong>
+            <span>Acesso seguro</span>
+          </div>
+        </div>
+        <form className="form" onSubmit={(event) => submit(event, () => onLogin(email, password))}>
+          <Input label="E-mail" value={email} onChange={setEmail} />
+          <Input label="Senha" type="password" value={password} onChange={setPassword} />
+          <button className="primary login-submit" type="submit"><LockKeyhole size={18} /> Entrar</button>
+        </form>
+        {error && <div className="notice error">{error}</div>}
       </section>
     </main>
   );
@@ -171,7 +242,7 @@ function DashboardPage({ dashboard, requests }: { dashboard: Dashboard | null; r
   );
 }
 
-function ProfessionalsPage({ professionals, onCreate }: { professionals: Professional[]; onCreate: (body: Omit<Professional, "id">) => void }) {
+function ProfessionalsPage({ professionals, onCreate }: { professionals: Professional[]; onCreate: (body: Omit<Professional, "id" | "createdAt" | "updatedAt">) => void }) {
   const [form, setForm] = useState({ name: "", email: "", document: "", team: "", active: true });
   return (
     <TwoColumn>
@@ -293,23 +364,55 @@ function ReportsPage({ professionals, rows, onSearch }: { professionals: Profess
   );
 }
 
-function UsersPage({ users, onCreate }: { users: AppUser[]; onCreate: (body: Omit<AppUser, "id">) => void }) {
-  const [form, setForm] = useState({ name: "", email: "", role: "ADMIN" as AppUser["role"], active: true });
+function UsersPage({
+  professionals,
+  users,
+  onCreate,
+  onActivate,
+  onDeactivate
+}: {
+  professionals: Professional[];
+  users: AppUser[];
+  onCreate: (body: Parameters<typeof api.createUser>[0]) => void;
+  onActivate: (id: number) => void;
+  onDeactivate: (id: number) => void;
+}) {
+  const [form, setForm] = useState({ name: "", email: "", password: "", role: "PROFESSIONAL" as AppUser["role"], professionalId: "", active: true });
   return (
     <TwoColumn>
       <Panel title="Cadastrar usuario">
-        <form className="form" onSubmit={(event) => submit(event, () => onCreate(form))}>
+        <form className="form" onSubmit={(event) => submit(event, () => onCreate({
+          name: form.name,
+          email: form.email,
+          password: form.password || undefined,
+          role: form.role,
+          professionalId: form.professionalId ? Number(form.professionalId) : null,
+          active: form.active
+        }))}>
           <Input label="Nome" value={form.name} onChange={(name) => setForm({ ...form, name })} />
           <Input label="Email" value={form.email} onChange={(email) => setForm({ ...form, email })} />
-          <Select label="Perfil" value={form.role} onChange={(role) => setForm({ ...form, role: role as AppUser["role"] })} options={[{ value: "ADMIN", label: "Admin" }, { value: "MANAGER", label: "Gestor" }, { value: "VIEWER", label: "Consulta" }]} />
+          <Input label="Senha inicial" type="password" value={form.password} onChange={(password) => setForm({ ...form, password })} />
+          <Select label="Perfil" value={form.role} onChange={(role) => setForm({ ...form, role: role as AppUser["role"] })} options={Object.entries(roleLabels).map(([value, label]) => ({ value, label }))} />
+          <Select label="Profissional vinculado" value={form.professionalId} onChange={(professionalId) => setForm({ ...form, professionalId })} options={professionals.map((item) => ({ value: String(item.id), label: item.name }))} optionalLabel="Somente SUPER_ADMIN" />
           <label className="check"><input type="checkbox" checked={form.active} onChange={(event) => setForm({ ...form, active: event.target.checked })} /> Ativo</label>
           <SubmitButton label="Cadastrar" />
         </form>
       </Panel>
       <Panel title="Usuarios">
         <table>
-          <thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Status</th></tr></thead>
-          <tbody>{users.map((item) => <tr key={item.id}><td>{item.name}</td><td>{item.email}</td><td>{item.role}</td><td><StatusBadge label={item.active ? "Ativo" : "Inativo"} tone={item.active ? "good" : "muted"} /></td></tr>)}</tbody>
+          <thead><tr><th>Nome</th><th>Email</th><th>Perfil</th><th>Profissional</th><th>Status</th><th>Acoes</th></tr></thead>
+          <tbody>{users.map((item) => (
+            <tr key={item.id}>
+              <td>{item.name}</td>
+              <td>{item.email}</td>
+              <td>{roleLabels[item.role]}</td>
+              <td>{item.professionalName ?? "-"}</td>
+              <td><StatusBadge label={item.active ? "Ativo" : "Inativo"} tone={item.active ? "good" : "muted"} /></td>
+              <td className="actions">
+                {item.active ? <button onClick={() => onDeactivate(item.id)}>Inativar</button> : <button onClick={() => onActivate(item.id)}>Ativar</button>}
+              </td>
+            </tr>
+          ))}</tbody>
         </table>
       </Panel>
     </TwoColumn>

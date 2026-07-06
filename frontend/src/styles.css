@@ -30,6 +30,34 @@ button {
   grid-template-columns: 260px 1fr;
 }
 
+.login-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #111827;
+}
+
+.login-panel {
+  width: min(420px, 100%);
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 28px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+}
+
+.login-brand {
+  color: #111827;
+  margin-bottom: 24px;
+}
+
+.login-submit {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
 .sidebar {
   background: #111827;
   color: #f9fafb;
@@ -88,6 +116,20 @@ button {
 .nav button.active {
   background: #1f2937;
   color: #ffffff;
+}
+
+.logout-button {
+  margin-top: auto;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 8px;
+  color: #fecaca;
+  background: #7f1d1d;
+  padding: 0 12px;
+  font-weight: 700;
 }
 
 .workspace {

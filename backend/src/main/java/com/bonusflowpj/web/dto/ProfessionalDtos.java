@@ -17,13 +17,24 @@ public final class ProfessionalDtos {
     ) {
     }
 
+    public record UpdateProfessionalRequest(
+        @NotBlank String name,
+        @Email @NotBlank String email,
+        @NotBlank String document,
+        @NotBlank String team,
+        boolean active
+    ) {
+    }
+
     public record ProfessionalResponse(
         Long id,
         String name,
         String email,
         String document,
         String team,
-        boolean active
+        boolean active,
+        java.time.Instant createdAt,
+        java.time.Instant updatedAt
     ) {
     }
 }

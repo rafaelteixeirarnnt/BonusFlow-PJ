@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
 
@@ -33,6 +34,9 @@ public class Professional {
 
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
+
+    @Column(nullable = false)
+    private Instant updatedAt = Instant.now();
 
     protected Professional() {
     }
@@ -71,5 +75,26 @@ public class Professional {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void update(String name, String email, String document, String team, boolean active) {
+        this.name = name;
+        this.email = email;
+        this.document = document;
+        this.team = team;
+        this.active = active;
+    }
+
+    public void deactivate() {
+        this.active = false;
+    }
+
+    @PreUpdate
+    public void touch() {
+        this.updatedAt = Instant.now();
     }
 }

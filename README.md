@@ -55,7 +55,7 @@ npm run dev
 
 ## Fluxo inicial de uso
 
-1. Cadastre um usuario Admin ou Gestor.
+1. Acesse com o usuario inicial `admin@bonusflow.com` e senha `Admin@123`.
 2. Cadastre um profissional PJ ativo.
 3. Cadastre uma regra contratual para o profissional e tipo de afastamento.
 4. Registre uma solicitacao de afastamento.
@@ -74,13 +74,51 @@ npm run dev
 
 ## Perfis
 
-Os perfis `ADMIN`, `MANAGER` e `VIEWER` ja estao modelados na entidade `User` e disponiveis nos cadastros. Esta estrutura inicial ainda nao inclui login nem bloqueio de endpoints por perfil; esse e o proximo passo natural com Spring Security/JWT ou integracao SSO.
+Os perfis disponiveis sao `SUPER_ADMIN`, `ADMIN`, `MANAGER`, `PROFESSIONAL` e `VIEWER`.
+
+- `SUPER_ADMIN` e usuario tecnico do sistema, nao precisa de profissional vinculado e e protegido por `systemUser`.
+- Demais perfis exigem vinculo com um profissional PJ.
+- Usuarios marcados como `systemUser` nao podem ser inativados.
+- Exclusao fisica nao e exposta pela API; a inativacao e logica via `active = false`.
+
+## Autenticacao
+
+Toda rota privada em `/api/**` exige token JWT. Rotas publicas:
+
+- `POST /api/auth/login`
+- `GET /api/health`
+
+Login inicial:
+
+```text
+E-mail: admin@bonusflow.com
+Senha: Admin@123
+```
+
+Variaveis uteis:
+
+```bash
+APP_JWT_SECRET=local-dev-secret-change-me-local-dev-secret-change-me
+APP_JWT_EXPIRATION_MINUTES=480
+APP_FRONTEND_URL=http://localhost:5173
+```
+
+## E-mail de acesso
+
+Ao criar usuario vinculado a profissional, o backend chama `AccessEmailService` com as credenciais iniciais. A implementacao atual `LoggingAccessEmailService` simula o envio e nao registra a senha em texto puro nos logs. Para producao, substitua essa implementacao por SMTP ou provedor transacional mantendo a mesma interface.
 
 ## Endpoints principais
 
 - `GET/POST /api/professionals`
 - `GET/POST /api/users`
+- `GET /api/users/{id}`
+- `PUT /api/users/{id}`
+- `PATCH /api/users/{id}/deactivate`
+- `PATCH /api/users/{id}/activate`
 - `GET/POST /api/contract-rules`
+- `GET /api/professionals/{id}`
+- `PUT /api/professionals/{id}`
+- `PATCH /api/professionals/{id}/deactivate`
 - `GET/POST /api/absence-requests`
 - `PATCH /api/absence-requests/{id}/approve`
 - `PATCH /api/absence-requests/{id}/reject`

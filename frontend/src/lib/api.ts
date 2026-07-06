@@ -1,6 +1,6 @@
 export type AbsenceType = "VACATION" | "MEDICAL_LEAVE" | "PERSONAL_LEAVE" | "BONUS_DAY" | "OTHER";
 export type AbsenceStatus = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
-export type UserRole = "ADMIN" | "MANAGER" | "VIEWER";
+export type UserRole = "SUPER_ADMIN" | "ADMIN" | "MANAGER" | "PROFESSIONAL" | "VIEWER";
 
 export type Professional = {
   id: number;
@@ -9,6 +9,8 @@ export type Professional = {
   document: string;
   team: string;
   active: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type AppUser = {
@@ -17,6 +19,12 @@ export type AppUser = {
   email: string;
   role: UserRole;
   active: boolean;
+  professionalId?: number | null;
+  professionalName?: string | null;
+  systemUser: boolean;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string | null;
 };
 
 export type ContractRule = {
@@ -50,12 +58,44 @@ export type Dashboard = {
   approvedDays: number;
 };
 
+export type AuthUser = {
+  id: number;
+  name: string;
+  email: string;
+  role: UserRole;
+  professionalId?: number | null;
+  systemUser: boolean;
+  lastLoginAt?: string | null;
+};
+
+export type LoginResponse = {
+  token: string;
+  user: AuthUser;
+};
+
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080/api";
+const TOKEN_KEY = "bonusflow.token";
+
+let authToken = localStorage.getItem(TOKEN_KEY);
+
+export function setAuthToken(token: string | null) {
+  authToken = token;
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
+}
+
+export function getAuthToken() {
+  return authToken;
+}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     headers: {
       "Content-Type": "application/json",
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...init?.headers
     },
     ...init
@@ -70,6 +110,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  login: (body: { email: string; password: string }) =>
+    request<LoginResponse>("/auth/login", { method: "POST", body: JSON.stringify(body) }),
+  health: () => request<{ status: string }>("/health"),
   dashboard: () => request<Dashboard>("/dashboard"),
   professionals: () => request<Professional[]>("/professionals"),
   users: () => request<AppUser[]>("/users"),
@@ -81,10 +124,26 @@ export const api = {
     if (absenceType) params.set("absenceType", absenceType);
     return request<AbsenceRequest[]>(`/absence-requests/report?${params}`);
   },
-  createProfessional: (body: Omit<Professional, "id">) =>
+  createProfessional: (body: Omit<Professional, "id" | "createdAt" | "updatedAt">) =>
     request<Professional>("/professionals", { method: "POST", body: JSON.stringify(body) }),
-  createUser: (body: Omit<AppUser, "id">) =>
+  createUser: (body: {
+    name: string;
+    email: string;
+    password?: string;
+    role: UserRole;
+    professionalId?: number | null;
+    active: boolean;
+  }) =>
     request<AppUser>("/users", { method: "POST", body: JSON.stringify(body) }),
+  updateUser: (id: number, body: {
+    name: string;
+    email: string;
+    role: UserRole;
+    professionalId?: number | null;
+    active: boolean;
+  }) => request<AppUser>(`/users/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deactivateUser: (id: number) => request<AppUser>(`/users/${id}/deactivate`, { method: "PATCH" }),
+  activateUser: (id: number) => request<AppUser>(`/users/${id}/activate`, { method: "PATCH" }),
   createRule: (body: {
     professionalId: number;
     absenceType: AbsenceType;
@@ -120,4 +179,12 @@ export const statusLabels: Record<AbsenceStatus, string> = {
   APPROVED: "Aprovado",
   REJECTED: "Reprovado",
   CANCELLED: "Cancelado"
+};
+
+export const roleLabels: Record<UserRole, string> = {
+  SUPER_ADMIN: "Super Admin",
+  ADMIN: "Admin",
+  MANAGER: "Gestor",
+  PROFESSIONAL: "Profissional",
+  VIEWER: "Consulta"
 };
