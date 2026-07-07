@@ -1,6 +1,9 @@
 package com.bonusflowpj.domain;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -13,6 +16,9 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -24,6 +30,15 @@ public class User {
 
     @Column(nullable = false)
     private String name;
+
+    @Column(unique = true, length = 11)
+    private String cpf;
+
+    private LocalDate birthDate;
+
+    private String motherName;
+
+    private String fatherName;
 
     @Column(nullable = false, unique = true)
     private String email;
@@ -38,6 +53,13 @@ public class User {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "professional_id")
     private Professional professional;
+
+    @ElementCollection
+    @CollectionTable(name = "user_contacts", joinColumns = @JoinColumn(name = "user_id"))
+    private List<UserContact> contacts = new ArrayList<>();
+
+    @Embedded
+    private UserAddress address;
 
     @Column(name = "system_user_flag", nullable = false)
     private boolean systemUser;
@@ -70,12 +92,52 @@ public class User {
         this.systemUser = systemUser;
     }
 
+    public User(
+        String name,
+        String cpf,
+        LocalDate birthDate,
+        String motherName,
+        String fatherName,
+        String email,
+        String password,
+        UserRole role,
+        boolean active,
+        Professional professional,
+        boolean systemUser,
+        List<UserContact> contacts,
+        UserAddress address
+    ) {
+        this(name, email, password, role, active, professional, systemUser);
+        this.cpf = cpf;
+        this.birthDate = birthDate;
+        this.motherName = motherName;
+        this.fatherName = fatherName;
+        replaceContacts(contacts);
+        this.address = address;
+    }
+
     public Long getId() {
         return id;
     }
 
     public String getName() {
         return name;
+    }
+
+    public String getCpf() {
+        return cpf;
+    }
+
+    public LocalDate getBirthDate() {
+        return birthDate;
+    }
+
+    public String getMotherName() {
+        return motherName;
+    }
+
+    public String getFatherName() {
+        return fatherName;
     }
 
     public String getEmail() {
@@ -92,6 +154,14 @@ public class User {
 
     public Professional getProfessional() {
         return professional;
+    }
+
+    public List<UserContact> getContacts() {
+        return List.copyOf(contacts);
+    }
+
+    public UserAddress getAddress() {
+        return address;
     }
 
     public boolean isSystemUser() {
@@ -120,6 +190,43 @@ public class User {
         this.role = role;
         this.professional = professional;
         this.active = active;
+    }
+
+    public void updateProfile(
+        String name,
+        String cpf,
+        LocalDate birthDate,
+        String motherName,
+        String fatherName,
+        String email,
+        UserRole role,
+        Professional professional,
+        boolean active,
+        List<UserContact> contacts,
+        UserAddress address
+    ) {
+        update(name, email, role, professional, active);
+        this.cpf = cpf;
+        this.birthDate = birthDate;
+        this.motherName = motherName;
+        this.fatherName = fatherName;
+        replaceContacts(contacts);
+        this.address = address;
+    }
+
+    private void replaceContacts(List<UserContact> contacts) {
+        this.contacts.clear();
+        if (contacts != null) {
+            this.contacts.addAll(contacts);
+        }
+    }
+
+    public void linkProfessional(Professional professional) {
+        this.professional = professional;
+    }
+
+    public void unlinkProfessional() {
+        this.professional = null;
     }
 
     public void deactivate() {

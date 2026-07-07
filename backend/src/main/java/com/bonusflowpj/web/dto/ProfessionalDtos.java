@@ -22,8 +22,12 @@ public final class ProfessionalDtos {
         @Email @NotBlank String email,
         @NotBlank String document,
         @NotBlank String team,
-        boolean active
+        boolean active,
+        String justification
     ) {
+    }
+
+    public record ProfessionalStatusRequest(String justification) {
     }
 
     public record ProfessionalResponse(

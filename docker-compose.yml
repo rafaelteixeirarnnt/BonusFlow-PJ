@@ -27,7 +27,7 @@ services:
       APP_CORS_ALLOWED_ORIGINS: http://localhost:5173
       APP_FRONTEND_URL: http://localhost:5173
       APP_JWT_SECRET: local-dev-secret-change-me-local-dev-secret-change-me
-      APP_JWT_EXPIRATION_MINUTES: 480
+      APP_JWT_EXPIRATION_MINUTES: 10
     ports:
       - "8080:8080"
     depends_on:

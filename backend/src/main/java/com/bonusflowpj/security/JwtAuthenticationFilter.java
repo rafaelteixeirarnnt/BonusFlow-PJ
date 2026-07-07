@@ -34,13 +34,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 userRepository.findByEmailIgnoreCase(email)
                     .filter(User::isActive)
-                    .ifPresent(user -> SecurityContextHolder.getContext().setAuthentication(
-                        new UsernamePasswordAuthenticationToken(
-                            user.getEmail(),
-                            null,
-                            List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
-                        )
-                    ));
+                    .ifPresent(user -> {
+                        SecurityContextHolder.getContext().setAuthentication(
+                            new UsernamePasswordAuthenticationToken(
+                                user.getEmail(),
+                                null,
+                                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()))
+                            )
+                        );
+                        response.setHeader("X-Renewed-Token", jwtService.generate(user));
+                    });
             }
         }
         filterChain.doFilter(request, response);
